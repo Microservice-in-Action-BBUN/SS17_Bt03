@@ -1,0 +1,14 @@
+Lý do chọn @CacheEvict thay vì @CachePut:
+Trong một hệ thống có tính đồng thời cao (như GrabFood), sử dụng @CachePut có thể dẫn đến hiện tượng Race Condition. 
+
+Ví dụ: 
+1. Request A cập nhật DB với giá là 75,000đ.
+2. Request B cập nhật DB với giá là 80,000đ (Request B diễn ra sau A ở DB).
+3. Tuy nhiên, ở tầng Cache, Request B lại hoàn thành @CachePut trước (lưu 80,000đ vào cache).
+4. Request A bị trễ (do network hoặc GC pause) và thực hiện @CachePut sau cùng (lưu 75,000đ vào cache).
+
+Kết quả: Dữ liệu cuối cùng trong DB là 80,000đ, nhưng trong Cache lại là 75,000đ (tình trạng Stale Data).
+
+Cách giải quyết:
+Sử dụng @CacheEvict (Cache-Aside pattern). Khi có bản ghi cập nhật, chúng ta chỉ cần xóa (evict) key đó khỏi cache. Lần truy xuất tiếp theo sẽ là Cache Miss, hệ thống bắt buộc phải truy vấn DB để lấy dữ liệu mới nhất và nạp lại vào cache, đảm bảo tính nhất quán cuối cùng (Eventual Consistency). 
+Ngoài ra, thứ tự thực hiện được đảm bảo một cách tự nhiên: Cập nhật Database trước -> Xóa Cache sau.
